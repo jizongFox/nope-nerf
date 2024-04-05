@@ -6,11 +6,8 @@ from .blocks import (
     FeatureFusionBlock_custom,
     Interpolate,
     _make_encoder,
-    forward_vit,
 )
-
-
-# from pytorch_lightning import LightningModule
+from .vit import forward_vit
 
 
 def _make_fusion_block(features, use_bn):
