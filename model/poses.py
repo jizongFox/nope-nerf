@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-from model.common import make_c2w, convert3x4_4x4
+
+from model.common import make_c2w
 
 
 class LearnPose(nn.Module):
@@ -17,8 +18,12 @@ class LearnPose(nn.Module):
         self.init_c2w = None
         if init_c2w is not None:
             self.init_c2w = nn.Parameter(init_c2w, requires_grad=False)
-        self.r = nn.Parameter(torch.zeros(size=(num_cams, 3), dtype=torch.float32), requires_grad=learn_R)  # (N, 3)
-        self.t = nn.Parameter(torch.zeros(size=(num_cams, 3), dtype=torch.float32), requires_grad=learn_t)  # (N, 3)
+        self.r = nn.Parameter(
+            torch.zeros(size=(num_cams, 3), dtype=torch.float32), requires_grad=learn_R
+        )  # (N, 3)
+        self.t = nn.Parameter(
+            torch.zeros(size=(num_cams, 3), dtype=torch.float32), requires_grad=learn_t
+        )  # (N, 3)
 
     def forward(self, cam_id):
         cam_id = int(cam_id)
@@ -29,9 +34,6 @@ class LearnPose(nn.Module):
         if self.init_c2w is not None:
             c2w = c2w @ self.init_c2w[cam_id]
         return c2w
-    def get_t(self):
-       return self.t
-   
-    
-    
 
+    def get_t(self):
+        return self.t

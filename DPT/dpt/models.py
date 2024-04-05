@@ -1,22 +1,18 @@
-from typing import Any, List
-import string
-from xmlrpc.client import Boolean
-import cv2
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torchvision.transforms import Compose
-# from pytorch_lightning import LightningModule
 
 from .base_model import BaseModel
 from .blocks import (
-    FeatureFusionBlock,
     FeatureFusionBlock_custom,
     Interpolate,
     _make_encoder,
     forward_vit,
 )
-import sys
+
+
+# from pytorch_lightning import LightningModule
+
+
 def _make_fusion_block(features, use_bn):
     return FeatureFusionBlock_custom(
         features,
@@ -32,7 +28,7 @@ class DepthLoss(nn.Module):
     def __init__(self, loss_type):
         """Calculate depth loss with masking scheme.
         Remove zero/negative target values
-        
+
         Args:
             cfg (eDict): loss configuration
                 - loss_type (str): the method of calculating loss
@@ -51,7 +47,7 @@ class DepthLoss(nn.Module):
         Args:
             pred (Nx1xHxW): predicted depth map
             target (Nx1xHxW): GT depth map
-            
+
         Returns:
             total_loss (dict): loss items
         """
@@ -63,29 +59,29 @@ class DepthLoss(nn.Module):
 
         # use inverse depth
         if self.use_inv_depth:
-            target = 1. / (target + self.eps)
-            pred = 1. / (pred + self.eps)
-        
+            target = 1.0 / (target + self.eps)
+            pred = 1.0 / (pred + self.eps)
+
         if len(target[mask]) != 0:
             # compute loss
-            if self.loss_type in ['smL1', 'L1', 'L2']:
+            if self.loss_type in ["smL1", "L1", "L2"]:
                 diff = target[mask] - pred[mask]
-                if self.loss_type == 'smL1':
-                    loss = ((diff / 2 )**2 + 1 ).pow(0.5) - 1
-                elif self.loss_type == 'L1':
+                if self.loss_type == "smL1":
+                    loss = ((diff / 2) ** 2 + 1).pow(0.5) - 1
+                elif self.loss_type == "L1":
                     loss = diff.abs()
                 elif self.loss_type == "L2":
                     loss = diff ** 2
                 depth_loss = loss.mean()
-            elif self.loss_type in ['eigen']:
+            elif self.loss_type in ["eigen"]:
                 diff = torch.log(target[mask]) - torch.log(pred[mask])
-                loss1 = (diff**2).mean()
-                loss2 = (diff.sum())**2/(len(diff)**2)
+                loss1 = (diff ** 2).mean()
+                loss2 = (diff.sum()) ** 2 / (len(diff) ** 2)
                 depth_loss = loss1 + 0.5 * loss2
 
         else:
             ### set depth_loss to 0 ###
-            depth_loss = (pred*0).sum()
+            depth_loss = (pred * 0).sum()
 
         return depth_loss
 
@@ -100,7 +96,7 @@ class DPT(BaseModel):
         channels_last=False,
         use_bn=False,
         enable_attention_hooks=False,
-        freeze=True
+        freeze=True,
     ):
 
         super(DPT, self).__init__()
@@ -133,11 +129,9 @@ class DPT(BaseModel):
 
         self.scratch.output_conv = head
 
-
         if freeze:
             for name, p in self.named_parameters():
                 p.requires_grad = False
-                
 
     def forward(self, x):
         if self.channels_last == True:
@@ -154,21 +148,28 @@ class DPT(BaseModel):
         path_3 = self.scratch.refinenet3(path_4, layer_3_rn)
         path_2 = self.scratch.refinenet2(path_3, layer_2_rn)
         path_1 = self.scratch.refinenet1(path_2, layer_1_rn)
-        
+
         out = self.scratch.output_conv(path_1)
         return out
 
 
 class DPTDepthModel(DPT):
     def __init__(
-        self, path=None, non_negative=True, scale=1.0, shift=0.0, invert=True, freeze=True, **kwargs
+        self,
+        path=None,
+        non_negative=True,
+        scale=1.0,
+        shift=0.0,
+        invert=True,
+        freeze=True,
+        **kwargs
     ):
         features = kwargs["features"] if "features" in kwargs else 256
 
         self.scale = scale
         self.shift = shift
         self.invert = invert
-        
+
         head = nn.Sequential(
             nn.Conv2d(features, features // 2, kernel_size=3, stride=1, padding=1),
             Interpolate(scale_factor=2, mode="bilinear", align_corners=True),
@@ -193,12 +194,11 @@ class DPTDepthModel(DPT):
 
         if path is not None:
             self.load(path)
-        
+
         # if freeze:
         #     for name, p in self.named_parameters():
         #         print(name)
         #         p.requires_grad = False
-
 
     def forward(self, x):
         inv_depth = super().forward(x).squeeze(dim=1)
@@ -237,7 +237,7 @@ class DPTDepthModel(DPT):
 #         self.criterion = DepthLoss(loss_type)
 
 #         # self.automatic_optimization = False
-    
+
 #     def forward(self, x: torch.Tensor):
 #         return self.model(x)
 
@@ -248,7 +248,7 @@ class DPTDepthModel(DPT):
 #         return loss, pred, gt
 
 #     def training_step(self, batch: Any, batch_idx: int):
-        
+
 #         # opt = self.optimizers()
 #         # opt.zero_grad()
 
@@ -274,7 +274,7 @@ class DPTDepthModel(DPT):
 #         # self.manual_backward(loss)
 
 #         return loss
-        
+
 #     def training_epoch_end(self, outputs: List[Any]):
 #         # `outputs` is a list of dicts returned from `training_step()`
 #         pass

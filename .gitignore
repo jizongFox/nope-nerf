@@ -7,3 +7,5 @@ run.sh
 third_party/
 out/
 arc.sh
+.idea
+venv
